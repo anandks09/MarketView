@@ -658,6 +658,7 @@ function refreshAll() {
   });
   renderCards();
   buildMainChart(selectedSym, currentRange);
+  updateChartHeader();
   setTimeout(()=>icon.classList.remove('spinning'),700);
 }
 
@@ -853,14 +854,28 @@ async function fetchLiveHistory(sym, from, to) {
 }
 
 async function loadLivePrices() {
-  const results = await Promise.allSettled(ASSETS.slice(0,6).map(a=>fetchLivePrice(a.sym)));
+  const results = await Promise.allSettled(ASSETS.map(a=>fetchLivePrice(a.sym)));
   results.forEach((r,i)=>{
     if (r.status==='fulfilled'&&r.value&&r.value.price) {
       ASSETS[i].price = r.value.price;
-      if (r.value.change_percent) ASSETS[i].chg = r.value.change_percent;
+      if (r.value.change_percent !== undefined) ASSETS[i].chg = r.value.change_percent;
     }
   });
-  renderCards(); updateSummary();
+  renderCards();
+  updateSummary();
+  updateChartHeader();
+}
+
+function updateChartHeader() {
+  const a = ASSETS.find(x=>x.sym===selectedSym);
+  if (!a) return;
+  document.getElementById('ch-sym').textContent = a.sym;
+  document.getElementById('ch-price').textContent = '$'+fmtPrice(a.price, a.sym);
+  const chgEl = document.getElementById('ch-chg');
+  chgEl.textContent = (a.chg>=0?'+':'')+a.chg.toFixed(2)+'%';
+  chgEl.className = a.chg>=0?'c-up':'c-down';
+  chgEl.style.cssText = 'font-size:13px;font-family:var(--mono)';
+  document.getElementById('ch-name').textContent = a.name+' · '+a.type.charAt(0).toUpperCase()+a.type.slice(1);
 }
 
 function renderApiStatus() {
@@ -900,7 +915,7 @@ document.getElementById('clock').textContent = new Date().toLocaleTimeString();
 // ══════════════════════════════════════════
 renderCards();
 setTimeout(()=>{ buildMainChart('AAPL','3M'); updateSummary(); },100);
-loadLivePrices();
+loadLivePrices().then(()=>{ updateChartHeader(); });
 </script>
 </body>
 </html>
