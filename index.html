@@ -4,9 +4,11 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>MarketView — Live Dashboard</title>
+<meta name="sb-key" content="SUPABASE_ANON_KEY_PLACEHOLDER">
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root {
     --nav-bg: #0a1628;
@@ -180,6 +182,40 @@
     .summary-grid { grid-template-columns: 1fr 1fr; }
     .nav-links { display: none; }
   }
+
+  /* ── Auth modal ── */
+  .auth-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:999; align-items:center; justify-content:center; }
+  .auth-overlay.open { display:flex; }
+  .auth-modal { background:#fff; border-radius:14px; padding:28px; width:360px; max-width:90vw; }
+  .auth-title { font-size:18px; font-weight:500; color:#0a1628; margin-bottom:4px; }
+  .auth-sub { font-size:13px; color:#3d5a80; margin-bottom:20px; }
+  .auth-tabs { display:flex; gap:4px; background:#eef3fa; padding:3px; border-radius:8px; margin-bottom:20px; }
+  .auth-tab { flex:1; padding:7px; font-size:13px; border-radius:6px; border:none; background:transparent; color:#3d5a80; cursor:pointer; font-family:var(--sans); transition:all .15s; }
+  .auth-tab.active { background:#fff; color:#0a1628; font-weight:500; box-shadow:0 1px 4px rgba(0,0,0,0.1); }
+  .auth-field { margin-bottom:12px; }
+  .auth-field label { display:block; font-size:12px; font-weight:500; color:#3d5a80; margin-bottom:4px; }
+  .auth-field input { width:100%; border:1px solid #c8d8ee; border-radius:8px; padding:9px 12px; font-size:13px; font-family:var(--sans); color:#0a1628; background:#f5f8fd; outline:none; transition:border .15s; }
+  .auth-field input:focus { border-color:#1a5fa8; background:#fff; }
+  .auth-submit { width:100%; background:#0a1628; color:#fff; border:none; border-radius:8px; padding:11px; font-size:14px; font-weight:500; cursor:pointer; font-family:var(--sans); margin-top:4px; transition:background .15s; }
+  .auth-submit:hover { background:#0f1f3d; }
+  .auth-error { font-size:12px; color:#a32d2d; background:#fce8e8; border-radius:6px; padding:8px 10px; margin-bottom:12px; display:none; }
+  .auth-close { float:right; background:none; border:none; font-size:18px; cursor:pointer; color:#7a99bb; line-height:1; margin-top:-4px; }
+  /* ── User avatar in nav ── */
+  .nav-avatar { width:30px; height:30px; border-radius:50%; background:#4d9de0; color:#fff; font-size:12px; font-weight:500; display:flex; align-items:center; justify-content:center; cursor:pointer; font-family:var(--mono); border:2px solid rgba(255,255,255,0.2); }
+  .nav-signin { background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); border-radius:20px; padding:5px 14px; font-size:12px; color:#e8edf5; cursor:pointer; font-family:var(--sans); transition:all .15s; }
+  .nav-signin:hover { background:rgba(255,255,255,0.18); }
+  /* ── Profile edit ── */
+  .profile-edit-card { background:#fff; border-radius:12px; padding:20px; margin-bottom:12px; box-shadow:0 2px 12px rgba(0,0,0,0.25); }
+  .avatar-upload { width:72px; height:72px; border-radius:50%; background:#ddeeff; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:500; color:#0d3d6e; cursor:pointer; border:3px solid #1a5fa8; position:relative; overflow:hidden; }
+  .avatar-upload img { width:100%; height:100%; object-fit:cover; }
+  .edit-field { margin-bottom:12px; }
+  .edit-field label { display:block; font-size:12px; font-weight:500; color:#3d5a80; margin-bottom:4px; }
+  .edit-field input { width:100%; border:1px solid #c8d8ee; border-radius:8px; padding:8px 12px; font-size:13px; font-family:var(--sans); color:#0a1628; background:#f5f8fd; outline:none; }
+  .edit-field input:focus { border-color:#1a5fa8; }
+  .save-btn { background:#0a1628; color:#fff; border:none; border-radius:8px; padding:9px 20px; font-size:13px; font-weight:500; cursor:pointer; font-family:var(--sans); }
+  .save-btn:hover { background:#0f1f3d; }
+  .logout-btn { background:transparent; border:1px solid #c8d8ee; border-radius:8px; padding:9px 20px; font-size:13px; color:#3d5a80; cursor:pointer; font-family:var(--sans); margin-left:8px; }
+  .logout-btn:hover { border-color:#a32d2d; color:#a32d2d; }
 </style>
 </head>
 <body>
@@ -207,8 +243,40 @@
       <svg id="ricon" width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M13.5 2.5A7 7 0 1 0 14.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M14.5 2.5V6H11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Refresh
     </button>
+    <div id="nav-auth-area">
+      <button class="nav-signin" onclick="openAuth()">Sign in</button>
+    </div>
   </div>
 </nav>
+
+
+<!-- ══ AUTH MODAL ══ -->
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-modal">
+    <button class="auth-close" onclick="closeAuth()">&#10005;</button>
+    <div class="auth-title">Welcome to MarketView</div>
+    <div class="auth-sub">Join the investor discussion forum</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login',this)">Sign in</button>
+      <button class="auth-tab" onclick="switchAuthTab('signup',this)">Create account</button>
+    </div>
+    <div id="auth-error" class="auth-error"></div>
+    <!-- Login form -->
+    <div id="auth-login">
+      <div class="auth-field"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com"></div>
+      <div class="auth-field"><label>Password</label><input type="password" id="login-password" placeholder="Your password"></div>
+      <button class="auth-submit" onclick="handleLogin()">Sign in</button>
+    </div>
+    <!-- Signup form -->
+    <div id="auth-signup" style="display:none">
+      <div class="auth-field"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com"></div>
+      <div class="auth-field"><label>Username</label><input type="text" id="signup-username" placeholder="e.g. TradingRex" maxlength="20"></div>
+      <div class="auth-field"><label>Display name</label><input type="text" id="signup-displayname" placeholder="Your full name"></div>
+      <div class="auth-field"><label>Password</label><input type="password" id="signup-password" placeholder="Min 6 characters"></div>
+      <button class="auth-submit" onclick="handleSignup()">Create account</button>
+    </div>
+  </div>
+</div>
 
 <!-- ══ DASHBOARD VIEW ══ -->
 <div id="view-dashboard" class="view active">
@@ -327,38 +395,43 @@
 
 <!-- ══ PROFILE VIEW ══ -->
 <div id="view-profile" class="view">
-  <div style="max-width:520px">
-    <div class="card card-pad" style="margin-bottom:12px">
-      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
-        <div class="avatar av-blue" style="width:54px;height:54px;font-size:16px">TR</div>
-        <div>
-          <div style="font-size:17px;font-weight:500">TradingRex</div>
-          <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
-            <span class="badge-v">Verified investor</span>
-            <span style="font-size:11px;color:var(--text3)">Member since Jan 2024</span>
-          </div>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
-        <div class="profile-stat"><div class="profile-stat-val" id="prof-posts">0</div><div class="profile-stat-label">Posts</div></div>
-        <div class="profile-stat"><div class="profile-stat-val">6</div><div class="profile-stat-label">Symbols</div></div>
-        <div class="profile-stat"><div class="profile-stat-val" id="prof-replies">0</div><div class="profile-stat-label">Replies</div></div>
-      </div>
-      <div style="border-top:0.5px solid var(--border);padding-top:14px">
-        <div style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:8px">Verification</div>
-        <div style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px">
-          <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="var(--accent-bg)"/><path d="M5 8l2 2 4-4" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-          Identity verified · posts display your username
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;font-size:13px">
-          <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="var(--up-bg)"/><path d="M5 8l2 2 4-4" stroke="var(--up)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-          Anonymous mode available · toggle in forum sidebar
-        </div>
+  <div style="max-width:520px" id="profile-content">
+    <!-- shown when not logged in -->
+    <div id="profile-guest" style="display:none">
+      <div style="background:#fff;border-radius:12px;padding:30px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,0.25)">
+        <div style="font-size:40px;margin-bottom:12px">👤</div>
+        <div style="font-size:16px;font-weight:500;color:#0a1628;margin-bottom:6px">You are not signed in</div>
+        <div style="font-size:13px;color:#3d5a80;margin-bottom:16px">Create an account to join the forum and save your discussions</div>
+        <button class="save-btn" onclick="openAuth()">Sign in or create account</button>
       </div>
     </div>
-    <div class="card card-pad">
-      <div style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:10px">API connection status</div>
-      <div style="display:flex;flex-direction:column;gap:6px" id="api-status"></div>
+    <!-- shown when logged in -->
+    <div id="profile-user" style="display:none">
+      <div class="profile-edit-card">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+          <div class="avatar-upload" id="avatar-display" onclick="document.getElementById('avatar-file').click()">
+            <span id="avatar-initials">?</span>
+            <img id="avatar-img" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%">
+          </div>
+          <input type="file" id="avatar-file" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
+          <div>
+            <div style="font-size:16px;font-weight:500;color:#0a1628" id="profile-display-name">—</div>
+            <div style="font-size:12px;color:#3d5a80;margin-top:2px" id="profile-email-display">—</div>
+            <div style="font-size:11px;color:#7a99bb;margin-top:4px">Click avatar to change photo</div>
+          </div>
+        </div>
+        <div class="edit-field"><label>Username</label><input type="text" id="edit-username" placeholder="Username" maxlength="20"></div>
+        <div class="edit-field"><label>Display name</label><input type="text" id="edit-displayname" placeholder="Display name"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="save-btn" onclick="saveProfile()">Save changes</button>
+          <button class="logout-btn" onclick="handleLogout()">Sign out</button>
+        </div>
+        <div id="profile-save-msg" style="font-size:12px;margin-top:8px;display:none"></div>
+      </div>
+      <div style="background:#fff;border-radius:12px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,0.25)">
+        <div style="font-size:12px;font-weight:500;color:#3d5a80;margin-bottom:10px">API connection status</div>
+        <div style="display:flex;flex-direction:column;gap:6px" id="api-status"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -837,6 +910,7 @@ function showView(view, el) {
   document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
   if (el) el.classList.add('active');
   if (view==='forum') { renderForumSymList(); renderOnlineMembers(); renderThreadHeader(); renderPosts(); }
+  if (view==='profile') { renderProfileView(); renderApiStatus(); }
   if (view==='profile') renderApiStatus();
 }
 
@@ -913,6 +987,237 @@ function renderApiStatus() {
 // ══════════════════════════════════════════
 //  CLOCK + AUTO REFRESH
 // ══════════════════════════════════════════
+
+// ══════════════════════════════════════════
+//  SUPABASE AUTH
+// ══════════════════════════════════════════
+const SUPABASE_URL = 'https://rgdgscdaupcyemuczuoi.supabase.co';
+const SUPABASE_ANON = document.currentScript ? '' : '';
+let _sb = null;
+function getSB() {
+  if (!_sb) {
+    const k = typeof SUPABASE_ANON_KEY !== 'undefined' ? SUPABASE_ANON_KEY : '';
+    _sb = supabase.createClient(SUPABASE_URL, window.__SB_KEY__ || k);
+  }
+  return _sb;
+}
+
+let currentUser = null;
+let currentProfile = null;
+
+async function initAuth() {
+  const sb = getSB();
+  if (!sb) return;
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) {
+    currentUser = session.user;
+    await loadProfile(session.user.id);
+    updateNavAuth();
+  }
+  sb.auth.onAuthStateChange(async (_event, session) => {
+    currentUser = session?.user || null;
+    if (currentUser) {
+      await loadProfile(currentUser.id);
+    } else {
+      currentProfile = null;
+    }
+    updateNavAuth();
+    if (document.getElementById('view-profile').classList.contains('active')) renderProfileView();
+  });
+}
+
+async function loadProfile(userId) {
+  const sb = getSB(); if (!sb) return;
+  const { data } = await sb.from('profiles').select('*').eq('user_id', userId).single();
+  currentProfile = data;
+}
+
+function updateNavAuth() {
+  const area = document.getElementById('nav-auth-area');
+  if (!area) return;
+  if (currentUser && currentProfile) {
+    const initials = (currentProfile.display_name || currentProfile.username || '?').slice(0,2).toUpperCase();
+    area.innerHTML = `<div class="nav-avatar" onclick="showView('profile',document.querySelectorAll('.nav-link')[2])" title="${currentProfile.display_name || currentProfile.username}">${initials}</div>`;
+  } else if (currentUser) {
+    const initials = (currentUser.email||'?').slice(0,2).toUpperCase();
+    area.innerHTML = `<div class="nav-avatar" onclick="showView('profile',document.querySelectorAll('.nav-link')[2])">${initials}</div>`;
+  } else {
+    area.innerHTML = `<button class="nav-signin" onclick="openAuth()">Sign in</button>`;
+  }
+}
+
+function openAuth() { document.getElementById('auth-overlay').classList.add('open'); }
+function closeAuth() { document.getElementById('auth-overlay').classList.remove('open'); clearAuthError(); }
+
+function switchAuthTab(tab, el) {
+  document.querySelectorAll('.auth-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('auth-login').style.display = tab==='login'?'block':'none';
+  document.getElementById('auth-signup').style.display = tab==='signup'?'block':'none';
+  clearAuthError();
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+function clearAuthError() {
+  const el = document.getElementById('auth-error');
+  el.style.display = 'none'; el.textContent = '';
+}
+
+async function handleLogin() {
+  const sb = getSB(); if (!sb) return showAuthError('Auth not configured');
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  if (!email || !password) return showAuthError('Please fill in all fields');
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) return showAuthError(error.message);
+  closeAuth();
+}
+
+async function handleSignup() {
+  const sb = getSB(); if (!sb) return showAuthError('Auth not configured');
+  const email = document.getElementById('signup-email').value.trim();
+  const username = document.getElementById('signup-username').value.trim();
+  const displayName = document.getElementById('signup-displayname').value.trim();
+  const password = document.getElementById('signup-password').value;
+  if (!email || !username || !password) return showAuthError('Please fill in all required fields');
+  if (password.length < 6) return showAuthError('Password must be at least 6 characters');
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) return showAuthError('Username can only contain letters, numbers and underscores');
+  const { data, error } = await sb.auth.signUp({ email, password });
+  if (error) return showAuthError(error.message);
+  if (data.user) {
+    const { error: pe } = await sb.from('profiles').insert({
+      user_id: data.user.id, username, display_name: displayName || username
+    });
+    if (pe) return showAuthError('Account created but profile save failed: ' + pe.message);
+  }
+  closeAuth();
+}
+
+async function handleLogout() {
+  const sb = getSB(); if (!sb) return;
+  await sb.auth.signOut();
+  currentUser = null; currentProfile = null;
+  updateNavAuth();
+  renderProfileView();
+}
+
+function renderProfileView() {
+  const guest = document.getElementById('profile-guest');
+  const user = document.getElementById('profile-user');
+  if (!guest || !user) return;
+  if (currentUser) {
+    guest.style.display = 'none';
+    user.style.display = 'block';
+    document.getElementById('profile-display-name').textContent = currentProfile?.display_name || currentUser.email;
+    document.getElementById('profile-email-display').textContent = currentUser.email;
+    document.getElementById('edit-username').value = currentProfile?.username || '';
+    document.getElementById('edit-displayname').value = currentProfile?.display_name || '';
+    if (currentProfile?.avatar_url) {
+      document.getElementById('avatar-img').src = currentProfile.avatar_url;
+      document.getElementById('avatar-img').style.display = 'block';
+      document.getElementById('avatar-initials').style.display = 'none';
+    } else {
+      const init = (currentProfile?.display_name || currentProfile?.username || '?').slice(0,2).toUpperCase();
+      document.getElementById('avatar-initials').textContent = init;
+      document.getElementById('avatar-img').style.display = 'none';
+      document.getElementById('avatar-initials').style.display = 'block';
+    }
+  } else {
+    guest.style.display = 'block';
+    user.style.display = 'none';
+  }
+}
+
+async function saveProfile() {
+  const sb = getSB(); if (!sb || !currentUser) return;
+  const username = document.getElementById('edit-username').value.trim();
+  const display_name = document.getElementById('edit-displayname').value.trim();
+  if (!username) return;
+  const { error } = await sb.from('profiles').upsert({
+    user_id: currentUser.id, username, display_name
+  }, { onConflict: 'user_id' });
+  const msg = document.getElementById('profile-save-msg');
+  if (error) {
+    msg.textContent = 'Error: ' + error.message;
+    msg.style.color = '#a32d2d';
+  } else {
+    msg.textContent = 'Profile saved successfully!';
+    msg.style.color = '#1a7a3f';
+    await loadProfile(currentUser.id);
+    updateNavAuth();
+  }
+  msg.style.display = 'block';
+  setTimeout(() => msg.style.display = 'none', 3000);
+}
+
+async function uploadAvatar(input) {
+  const sb = getSB(); if (!sb || !currentUser) return;
+  const file = input.files[0]; if (!file) return;
+  const ext = file.name.split('.').pop();
+  const path = `avatars/${currentUser.id}.${ext}`;
+  const { error: upErr } = await sb.storage.from('avatars').upload(path, file, { upsert: true });
+  if (upErr) return alert('Upload failed: ' + upErr.message);
+  const { data } = sb.storage.from('avatars').getPublicUrl(path);
+  await sb.from('profiles').upsert({ user_id: currentUser.id, avatar_url: data.publicUrl }, { onConflict: 'user_id' });
+  await loadProfile(currentUser.id);
+  renderProfileView();
+  updateNavAuth();
+}
+
+// Override forum submitPost to use real auth
+const _origSubmitPost = submitPost;
+window.submitPost = async function() {
+  const sb = getSB();
+  const text = document.getElementById('compose-text').value.trim();
+  if (!text) return;
+  if (sb && currentUser && currentProfile) {
+    const { error } = await sb.from('posts').insert({
+      user_id: currentUser.id, symbol: forumSym, body: text
+    });
+    if (!error) {
+      document.getElementById('compose-text').value = '';
+      await loadForumPosts(forumSym);
+      renderThreadHeader();
+      return;
+    }
+  }
+  _origSubmitPost();
+};
+
+async function loadForumPosts(sym) {
+  const sb = getSB(); if (!sb) return;
+  const { data } = await sb.from('posts')
+    .select('*, profiles(username, display_name, avatar_url)')
+    .eq('symbol', sym)
+    .order('created_at', { ascending: false });
+  if (data && data.length) {
+    posts[sym] = data.map(p => ({
+      id: p.id,
+      user: p.profiles?.display_name || p.profiles?.username || 'User',
+      init: (p.profiles?.display_name || p.profiles?.username || 'U').slice(0,2).toUpperCase(),
+      av: 'av-blue',
+      avatarUrl: p.profiles?.avatar_url || null,
+      verified: true,
+      anon: false,
+      time: new Date(p.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
+      body: p.body,
+      replies: [],
+      flagged: p.flagged
+    }));
+    renderPosts();
+  }
+}
+
+// Init Supabase with key injected via meta tag or window variable
+document.addEventListener('DOMContentLoaded', () => {
+  const meta = document.querySelector('meta[name="sb-key"]');
+  if (meta) window.__SB_KEY__ = meta.content;
+  if (typeof supabase !== 'undefined') initAuth();
+});
+
 setInterval(()=>document.getElementById('clock').textContent=new Date().toLocaleTimeString(),1000);
 setInterval(refreshAll,30000);
 document.getElementById('clock').textContent = new Date().toLocaleTimeString();
