@@ -7,13 +7,20 @@ export async function handler(event) {
 
   const sym = symbol.toUpperCase();
 
-  // Twelve Data uses slash for forex pairs e.g. EUR/USD
-  const FOREX = ['EURUSD','GBPUSD','USDJPY','USDCAD','AUDUSD','USDCHF'];
-  const isForex = FOREX.includes(sym);
-  const tdSymbol = isForex ? sym.slice(0,3) + '/' + sym.slice(3) : sym;
+  const CRYPTO = ['BTC','ETH','SOL','BNB','XRP','ADA'];
+  const FOREX  = ['EURUSD','GBPUSD','USDJPY','USDCAD','AUDUSD','USDCHF'];
+
+  let tdSymbol;
+  if (CRYPTO.includes(sym)) {
+    tdSymbol = sym + '/USD';       // e.g. BTC/USD — forces crypto pair, not ETF
+  } else if (FOREX.includes(sym)) {
+    tdSymbol = sym.slice(0,3) + '/' + sym.slice(3);  // e.g. EUR/USD
+  } else {
+    tdSymbol = sym;                // stocks as-is e.g. AAPL
+  }
 
   try {
-    const url = `https://api.twelvedata.com/quote?symbol=${tdSymbol}&apikey=${API_KEY}`;
+    const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(tdSymbol)}&apikey=${API_KEY}`;
     const res = await fetch(url);
     const data = await res.json();
 
