@@ -992,12 +992,11 @@ function renderApiStatus() {
 //  SUPABASE AUTH
 // ══════════════════════════════════════════
 const SUPABASE_URL = 'https://rgdgscdaupcyemuczuoi.supabase.co';
-const SUPABASE_ANON = document.currentScript ? '' : '';
+const SUPABASE_KEY_META = document.querySelector('meta[name="sb-key"]')?.content || '';
 let _sb = null;
 function getSB() {
-  if (!_sb) {
-    const k = typeof SUPABASE_ANON_KEY !== 'undefined' ? SUPABASE_ANON_KEY : '';
-    _sb = supabase.createClient(SUPABASE_URL, window.__SB_KEY__ || k);
+  if (!_sb && typeof supabase !== 'undefined' && SUPABASE_KEY_META && SUPABASE_KEY_META !== 'SUPABASE_ANON_KEY_PLACEHOLDER') {
+    _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY_META);
   }
   return _sb;
 }

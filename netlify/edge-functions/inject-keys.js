@@ -5,9 +5,10 @@ export default async (request, context) => {
 
   const html = await response.text();
   const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+  
   const injected = html.replace(
-    'SUPABASE_ANON_KEY_PLACEHOLDER',
-    supabaseKey
+    'content="SUPABASE_ANON_KEY_PLACEHOLDER"',
+    `content="${supabaseKey}"`
   );
 
   return new Response(injected, {
