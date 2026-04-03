@@ -5,16 +5,19 @@ export default async (request, context) => {
 
   const html = await response.text();
   const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
-  
+
   const injected = html.replace(
-    'content="SUPABASE_ANON_KEY_PLACEHOLDER"',
-    `content="${supabaseKey}"`
+    '%%SUPABASE_ANON_KEY%%',
+    supabaseKey
   );
+
+  const headers = new Headers(response.headers);
+  headers.delete('content-length');
 
   return new Response(injected, {
     status: response.status,
-    headers: response.headers,
+    headers,
   });
 };
 
-export const config = { path: '/*' };
+export const config = { path: '/' };

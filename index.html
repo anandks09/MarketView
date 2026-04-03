@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>MarketView — Live Dashboard</title>
-<meta name="sb-key" content="SUPABASE_ANON_KEY_PLACEHOLDER">
+
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -992,11 +992,10 @@ function renderApiStatus() {
 //  SUPABASE AUTH
 // ══════════════════════════════════════════
 const SUPABASE_URL = 'https://rgdgscdaupcyemuczuoi.supabase.co';
-const SUPABASE_KEY_META = document.querySelector('meta[name="sb-key"]')?.content || '';
 let _sb = null;
 function getSB() {
-  if (!_sb && typeof supabase !== 'undefined' && SUPABASE_KEY_META && SUPABASE_KEY_META !== 'SUPABASE_ANON_KEY_PLACEHOLDER') {
-    _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY_META);
+  if (!_sb && typeof supabase !== 'undefined' && window.__SB_KEY__) {
+    _sb = supabase.createClient(SUPABASE_URL, window.__SB_KEY__);
   }
   return _sb;
 }
@@ -1210,11 +1209,10 @@ async function loadForumPosts(sym) {
   }
 }
 
-// Init Supabase with key injected via meta tag or window variable
+// Init Supabase
 document.addEventListener('DOMContentLoaded', () => {
-  const meta = document.querySelector('meta[name="sb-key"]');
-  if (meta) window.__SB_KEY__ = meta.content;
-  if (typeof supabase !== 'undefined') initAuth();
+  if (typeof supabase !== 'undefined' && window.__SB_KEY__) initAuth();
+  else setTimeout(() => { if (typeof supabase !== 'undefined' && window.__SB_KEY__) initAuth(); }, 500);
 });
 
 setInterval(()=>document.getElementById('clock').textContent=new Date().toLocaleTimeString(),1000);
@@ -1228,5 +1226,6 @@ renderCards();
 setTimeout(()=>{ buildMainChart('AAPL','3M'); updateSummary(); },100);
 loadLivePrices().then(()=>{ updateChartHeader(); });
 </script>
+<script>window.__SB_KEY__="%%SUPABASE_ANON_KEY%%";</script>
 </body>
 </html>
